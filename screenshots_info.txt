@@ -1,0 +1,5 @@
+1. screenshot_01_initial.png: Should show the initial empty buffer with a NORMAL mode indicator on the top left. The file name should be 'untitled.py'. The 'KBD' button should be visible on the top right.
+2. screenshot_02_keyboard.png: Should show the on-screen keyboard toggled on, overlapping the bottom half of the screen. Still in NORMAL mode.
+3. screenshot_03_insert_mode.png: After tapping 'i' on the OSK. The mode indicator at the top left should have changed from NORMAL to INSERT.
+4. screenshot_04_typed_hello.png: The word 'hello' should be typed in the first line of the buffer. Syntax highlighting should not color 'hello' since it's just text.
+5. screenshot_05_colon_mode.png: After hitting ESC (going back to NORMAL) and tapping ':' in the SYM tab. The status line at the bottom (above the keyboard) should show the command prompt starting with ':'.
