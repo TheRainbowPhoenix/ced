@@ -23,7 +23,7 @@ def do_cmd(c):
     if G.cmd_mode == 1: # INSERT
         if c == 27: # ESC
             G.cmd_mode = 0
-            if G.dot > 0 and G.text[G.dot-1] != 10: G.dot -= 1
+            if G.dot > 0 and G.dot <= len(G.text) and G.text[G.dot-1] != 10: G.dot -= 1
         elif c == KEY_EXE or c == '\n':
             b.string_insert(G.dot, '\n', ALLOW_UNDO)
             G.dot += 1

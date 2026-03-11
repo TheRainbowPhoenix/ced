@@ -25,7 +25,11 @@ def main():
         dupdate()
 
         ev = pollevent()
-        while ev.type != KEYEV_NONE:
+        while ev and ev.type != KEYEV_NONE:
+            if ev.type == KEYEV_DOWN and ev.key == KEY_EXIT and G.cmd_mode == 0:
+                running = False
+                break
+
             # Global keyboard toggle
             if ev.type == KEYEV_DOWN and ev.key == KEY_KBD:
                 kbd.visible = not kbd.visible

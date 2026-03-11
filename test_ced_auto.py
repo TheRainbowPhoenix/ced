@@ -26,8 +26,8 @@ def run_automation():
 
     # 2. Enter Insert Mode 'i' -> cinput KBD normally requires touch, but we added hardware key support
     # Actually 'i' is typed via OSK or hardware. In our simulator gint.py, keys are mapped.
-    # Let's just touch the top right to open KBD
-    post_touch(300, 15)
+    # Let's just touch the top left (KBD button) to open KBD
+    post_touch(10, 15)
     time.sleep(0.5)
     pygame.image.save(gint.vram, "screenshot_02_keyboard.png")
 
