@@ -1,5 +1,4 @@
 from vi_globals import G, UndoObject, UNDO_INS, UNDO_DEL, UNDO_INS_CHAIN, UNDO_DEL_CHAIN, NO_UNDO, ALLOW_UNDO, ALLOW_UNDO_CHAIN, YANKDEL, YANKONLY
-import os
 
 def flush_undo_data():
     G.undo_stack_tail = None
@@ -25,7 +24,8 @@ def undo_pop():
     if undo_entry.u_type in (UNDO_DEL, UNDO_DEL_CHAIN):
         # restore deleted text
         text_hole_make(undo_entry.start, undo_entry.length)
-        G.text[undo_entry.start : undo_entry.start + undo_entry.length] = undo_entry.undo_text
+        for i in range(undo_entry.length):
+            G.text[undo_entry.start + i] = undo_entry.undo_text[i]
     elif undo_entry.u_type in (UNDO_INS, UNDO_INS_CHAIN):
         # remove inserted text
         text_hole_delete(undo_entry.start, undo_entry.start + undo_entry.length - 1, NO_UNDO)
@@ -43,8 +43,8 @@ def undo_pop():
 
 def text_hole_make(p_idx, size):
     if size <= 0: return 0
-    # bytearray insert
-    G.text[p_idx:p_idx] = bytearray(b' ' * size)
+    # MicroPython compatible bytearray insertion (concatenation)
+    G.text = G.text[:p_idx] + bytearray(b' ' * size) + G.text[p_idx:]
     # adjust markers
     if G.dot >= p_idx: G.dot += size
     if G.screenbegin >= p_idx: G.screenbegin += size
@@ -61,7 +61,9 @@ def text_hole_delete(p_idx, q_idx, undo):
     if undo == ALLOW_UNDO: undo_push(p_idx, hole_size, UNDO_DEL)
     elif undo == ALLOW_UNDO_CHAIN: undo_push(p_idx, hole_size, UNDO_DEL_CHAIN)
 
-    del G.text[p_idx : q_idx + 1]
+    # MicroPython compatible bytearray deletion (concatenation)
+    if p_idx < len(G.text):
+        G.text = G.text[:p_idx] + G.text[q_idx + 1:]
 
     # adjust markers
     if G.dot > q_idx: G.dot -= hole_size
@@ -112,7 +114,8 @@ def string_insert(p_idx, s, undo):
     elif undo == ALLOW_UNDO_CHAIN: undo_push(p_idx, size, UNDO_INS_CHAIN)
 
     text_hole_make(p_idx, size)
-    G.text[p_idx : p_idx + size] = s
+    for i in range(size):
+        G.text[p_idx + i] = s[i]
     return size
 
 def stupid_insert(p_idx, c):

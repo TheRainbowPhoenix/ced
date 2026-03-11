@@ -652,6 +652,12 @@ _inverse_key_mapping.update({
 })
 
 
+def cleareventflips():
+    pass
+
+def keypressed(k):
+    return False
+
 def pollevent():
     global _key_states
     _update_modifiers()

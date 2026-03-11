@@ -67,20 +67,17 @@ def run_automation():
     time.sleep(0.5)
     pygame.image.save(gint.vram, "screenshot_05_colon_mode.png")
 
-    # 6. Quit out using vi command :q
+    # 6. Quit out via the new Menu
     post_key(pygame.K_ESCAPE) # Ensure Normal Mode
     time.sleep(0.5)
-    post_touch(160, 280) # Tap 'Sym' tab
+    post_touch(10, 15) # Tap top left to open menu
     time.sleep(0.5)
-    post_touch(208, 400) # ':'
-    time.sleep(0.5)
-    post_touch(50, 280) # Tap 'abc' tab
-    time.sleep(0.5)
-    # 'q' is row 1, col 0 -> Y=343, X=0*32+16=16
-    post_touch(16, 360) # 'q'
-    time.sleep(0.5)
-    # 'ENTER' is row 4, far right -> X=290, Y=478
-    post_touch(290, 480) # 'ENTER'
+    pygame.image.save(gint.vram, "screenshot_06_menu.png")
+
+    # Tap "Quit"
+    # Picker row height = 50, Header = 40. "Quit" is index 4 (0-based)
+    # Y = 40 + 4 * 50 + 25 = 40 + 200 + 25 = 265
+    post_touch(160, 265)
     time.sleep(0.5)
 
     # Send a fallback exit event just in case
@@ -92,4 +89,3 @@ t.daemon = True
 t.start()
 
 import ced
-ced.main()

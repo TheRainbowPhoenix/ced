@@ -34,9 +34,62 @@ def main():
             if ev.type == KEYEV_DOWN and ev.key == KEY_KBD:
                 kbd.visible = not kbd.visible
 
+            # Global menu toggle
+            if ev.type == KEYEV_DOWN and ev.key in (KEY_MENU, KEY_F1):
+                # Menu
+                opts = ["New", "Open...", "Save", "Save As...", "Quit"]
+                choice = cinput.pick(opts, "Menu", theme='light')
+                if choice == "Quit":
+                    running = False
+                    break
+                elif choice == "New":
+                    b.init_text_buffer("untitled.py")
+                    G.cmd_mode = 0
+                elif choice == "Save":
+                    c.colon("w")
+                elif choice == "Save As...":
+                    fname = cinput.input("Save as:", theme='light')
+                    if fname:
+                        G.current_filename = fname
+                        c.colon("w")
+                elif choice == "Open...":
+                    fname = cinput.input("Open file:", theme='light')
+                    if fname:
+                        b.init_text_buffer(fname)
+                        G.cmd_mode = 0
+
+                clearevents()
+                continue
+
             # Top bar toggle
-            if ev.type == KEYEV_TOUCH_DOWN and ev.y < 30 and ev.x < 50:
-                kbd.visible = not kbd.visible
+            if ev.type == KEYEV_TOUCH_DOWN and ev.y < 30:
+                if ev.x > 260:
+                    kbd.visible = not kbd.visible
+                elif ev.x < 60:
+                    # Menu
+                    opts = ["New", "Open...", "Save", "Save As...", "Quit"]
+                    choice = cinput.pick(opts, "Menu", theme='light')
+                    if choice == "Quit":
+                        running = False
+                        break
+                    elif choice == "New":
+                        b.init_text_buffer("untitled.py")
+                        G.cmd_mode = 0
+                    elif choice == "Save":
+                        c.colon("w")
+                    elif choice == "Save As...":
+                        fname = cinput.input("Save as:", theme='light')
+                        if fname:
+                            G.current_filename = fname
+                            c.colon("w")
+                    elif choice == "Open...":
+                        fname = cinput.input("Open file:", theme='light')
+                        if fname:
+                            b.init_text_buffer(fname)
+                            G.cmd_mode = 0
+
+                    clearevents()
+                    continue
 
             res = None
             if kbd.visible and ev.type == KEYEV_TOUCH_DOWN and ev.y >= kbd.y:
