@@ -329,10 +329,14 @@ class Editor:
 
             for e in events:
                 if e.type == KEYEV_DOWN:
-                    if e.key == KEY_UP: return KEY_UP, None
-                    elif e.key == KEY_DOWN: return KEY_DOWN, None
-                    elif e.key == KEY_LEFT: return KEY_LEFT, None
-                    elif e.key == KEY_RIGHT: return KEY_RIGHT, None
+                    if e.key == KEY_UP or e.key == KEY_8: return KEY_UP, None
+                    elif e.key == KEY_DOWN or e.key == KEY_2: return KEY_DOWN, None
+                    elif e.key == KEY_LEFT or e.key == KEY_4: return KEY_LEFT, None
+                    elif e.key == KEY_RIGHT or e.key == KEY_6: return KEY_RIGHT, None
+                    elif e.key == KEY_7: return KEY_HOME, None
+                    elif e.key == KEY_1: return KEY_END, None
+                    elif e.key == KEY_9: return KEY_PGUP, None
+                    elif e.key == KEY_3: return KEY_PGDN, None
                     elif e.key == KEY_EXE: return KEY_ENTER, None
                     elif e.key == KEY_DEL: return KEY_BACKSPACE, None
                     elif e.key == KEY_EXP:
@@ -434,6 +438,12 @@ class Editor:
         self.cur_line = min(self.total_lines - 1, max(self.cur_line, 0))
         self.vcol = max(0, min(self.col, len(self.content[self.cur_line])))
 
+        # Calculate horizontal scroll in pixels
+        cursor_offset, _ = dsize(self.content[self.cur_line][:self.vcol], None)
+        margin_px = 0
+        if cursor_offset > 320 - TEXT_MARGIN_X * 2 - 20: # 20px padding before edge
+            margin_px = cursor_offset - (320 - TEXT_MARGIN_X * 2 - 20)
+
         kb_h = 260 if hasattr(self, 'keyboard') and self.keyboard.visible else 0
         view_h = 528 - HEADER_H - kb_h
         lines_vis = view_h // TEXT_LINE_H
@@ -460,24 +470,25 @@ class Editor:
             # Highlight mark background
             if self.mark is not None:
                 if start_line <= idx < end_line:
-                    x1 = TEXT_MARGIN_X
+                    x1 = TEXT_MARGIN_X - margin_px
                     x2 = 320
                     if idx == start_line:
                         w, _ = dsize(line_str[:start_col], None)
-                        x1 = TEXT_MARGIN_X + w
+                        x1 = TEXT_MARGIN_X + w - margin_px
                     if idx == end_line - 1:
                         w, _ = dsize(line_str[:end_col], None)
-                        x2 = TEXT_MARGIN_X + w
-                    drect(x1, y, x2, y + 18, 0xCE59) # Theme highlight color
+                        x2 = TEXT_MARGIN_X + w - margin_px
+                    # Clamp highlight to screen borders to avoid overflow
+                    drect(max(0, x1), y, min(320, x2), y + 18, 0xCE59)
 
             # Draw Text
-            dtext(TEXT_MARGIN_X, y, t['txt'], line_str)
+            dtext(TEXT_MARGIN_X - margin_px, y, t['txt'], line_str)
 
             # Draw Cursor
             if idx == self.cur_line:
-                cursor_offset, _ = dsize(line_str[:self.vcol], None)
-                cx_px = TEXT_MARGIN_X + cursor_offset
-                drect(cx_px, y, cx_px + 2, y + 18, t['txt'])
+                cx_px = TEXT_MARGIN_X + cursor_offset - margin_px
+                if cx_px >= 0 and cx_px <= 320:
+                    drect(cx_px, y, cx_px + 2, y + 18, t['txt'])
 
         dwindow_set(0, 0, 320, 528)
 
@@ -850,31 +861,106 @@ class Editor:
             self.cur_line = self.total_lines - 1
             self.row = Editor.height - 1  ## will be fixed if required
         elif key == KEY_TOGGLE:  ## Toggle Autoindent/Search case/ Tab Size, TAB write
-            pat = self.line_edit(
-                "Autoindent {}, Search Case {}"
-                ", Tabsize {}, Comment {}, Tabwrite {}: ".format(
-                    Editor.autoindent,
-                    Editor.case,
-                    self.tab_size,
-                    Editor.comment_char,
-                    self.write_tabs,
-                ),
-                "",
-            )
-            try:
-                res = [i.lstrip().lower() for i in pat.split(",")]
-                if res[0]:
-                    Editor.autoindent = "y" if res[0][0] == "y" else "n"
-                if res[1]:
-                    Editor.case = "y" if res[1][0] == "y" else "n"
-                if res[2]:
-                    self.tab_size = int(res[2])
-                if res[3]:
-                    Editor.comment_char = res[3]
-                if res[4]:
-                    self.write_tabs = "y" if res[4][0] == "y" else "n"
-            except IndexError:
-                pass
+            class SettingsListView(cinput.ListView):
+                def __init__(self, rect, items, theme_name='light'):
+                    super().__init__(rect, items, row_h=60, theme=theme_name)
+
+                def draw_item(self, x, y, item, is_selected):
+                    t = self.theme
+                    h = item['_h']
+
+                    if is_selected:
+                        bg = t['accent']
+                        txt_primary = t['txt_acc']
+                        txt_secondary = t['txt_acc']
+                        border = t['accent']
+                    else:
+                        bg = t['modal_bg']
+                        txt_primary = t['txt']
+                        txt_secondary = t['txt_dim']
+                        border = t['key_spec']
+
+                    drect(x, y, x + self.w, y + h, bg)
+                    drect_border(x, y, x + self.w, y + h, C_NONE, 1, border)
+
+                    dtext_opt(x + 15, y + 15, txt_primary, C_NONE, DTEXT_LEFT, DTEXT_MIDDLE, item['name'], -1)
+                    dtext_opt(x + 15, y + 40, txt_secondary, C_NONE, DTEXT_LEFT, DTEXT_MIDDLE, str(item['val']), -1)
+
+            t = self.keyboard.theme
+            running_settings = True
+            while running_settings:
+                items = [
+                    {'name': 'Autoindent', 'val': Editor.autoindent, 'type': 'item', 'key': 'auto'},
+                    {'name': 'Search Case', 'val': Editor.case, 'type': 'item', 'key': 'case'},
+                    {'name': 'Tab Size', 'val': self.tab_size, 'type': 'item', 'key': 'tab'},
+                    {'name': 'Comment Char', 'val': Editor.comment_char, 'type': 'item', 'key': 'com'},
+                    {'name': 'Tab Write', 'val': self.write_tabs, 'type': 'item', 'key': 'tw'},
+                    {'name': 'Theme', 'val': self.keyboard.theme_name if hasattr(self.keyboard, 'theme_name') else 'light', 'type': 'item', 'key': 'theme'}
+                ]
+
+                # Full screen minus header
+                rect = (0, 40, 320, 528 - 40)
+                lv = SettingsListView(rect, items, theme_name=t) # t is dict here, cinput handles it mostly but let's pass dict if get_theme supports it, or 'light'
+
+                # To be safe, force it to string if we can, or just use 'light'
+                lv.theme = t
+
+                dclear(t['modal_bg'])
+                drect(0, 0, 320, 40, t['accent'])
+                dtext_opt(320//2, 20, t['txt_acc'], C_NONE, DTEXT_CENTER, DTEXT_MIDDLE, "Settings", -1)
+                # back button
+                dline(15, 10, 25, 20, t['txt_acc'])
+                dline(25, 10, 15, 20, t['txt_acc'])
+                dline(16, 10, 26, 20, t['txt_acc'])
+                dline(26, 10, 16, 20, t['txt_acc'])
+
+                lv.draw()
+                dupdate()
+                cinput.cleareventflips()
+
+                ev = pollevent()
+                evs = []
+                while ev.type != KEYEV_NONE:
+                    evs.append(ev)
+                    ev = pollevent()
+
+                if keypressed(KEY_EXIT): break
+
+                for e in evs:
+                    if e.type == KEYEV_TOUCH_UP and e.y < 40 and e.x < 50:
+                        running_settings = False
+
+                action = lv.update(evs)
+                if action:
+                    aty, aidx, aitem = action
+                    if aty == 'click':
+                        k = aitem['key']
+                        if k == 'auto': Editor.autoindent = "n" if Editor.autoindent == "y" else "y"
+                        elif k == 'case': Editor.case = "n" if Editor.case == "y" else "y"
+                        elif k == 'tw': self.write_tabs = "n" if self.write_tabs == "y" else "y"
+                        elif k == 'tab':
+                            res = self.line_edit("Tab Size:", str(self.tab_size))
+                            if res and res.isdigit(): self.tab_size = int(res)
+                        elif k == 'com':
+                            res = self.line_edit("Comment:", Editor.comment_char)
+                            if res: Editor.comment_char = res
+                        elif k == 'theme':
+                            themes = ['light', 'dark', 'grey']
+                            curr = 'light'
+                            for name, td in cinput.THEMES.items():
+                                if td['modal_bg'] == t['modal_bg']: curr = name
+                            try: idx = themes.index(curr)
+                            except: idx = 0
+                            new_theme = themes[(idx + 1) % len(themes)]
+                            self.keyboard = cinput.Keyboard(theme=new_theme)
+                            self.keyboard.visible = False
+                            t = self.keyboard.theme
+                            lv.theme = t
+                time.sleep(0.01)
+
+            cinput.clearevents()
+            cinput.cleareventflips()
+
         elif key == KEY_SCRLUP:  ##
             ni = 1 if char is None else 3
             if self.top_line > 0:
