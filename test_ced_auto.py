@@ -74,15 +74,23 @@ def run_automation():
     time.sleep(0.5)
     pygame.image.save(gint.vram, "screenshot_06_menu.png")
 
+    # Wait for menu to settle
+    time.sleep(1)
+
     # Navigate to "Open..." (Index 1)
     import cinput
     original_input = cinput.input
     cinput.input = lambda *args, **kwargs: "large_file.py"
 
-    post_key(pygame.K_DOWN)
-    time.sleep(0.5)
-    post_key(pygame.K_RETURN) # Select "Open..."
-    time.sleep(1.0)
+    # The picker menu uses gint.KEY_DOWN, we need to map via simulator or just touch
+    # "Open..." is index 1.
+    # Menu Y: header is 40. Items are 50 high. Index 1 = 40 + 50 + 25 = 115
+    post_touch(160, 115)
+    time.sleep(1.5)
+
+    # Actually, clicking Open triggers another pollevent loop inside `cinput.input`.
+    # Our mock replaced it perfectly but let's make sure the return triggers the editor update
+    time.sleep(1)
 
     cinput.input = original_input
 
@@ -113,20 +121,40 @@ def run_automation():
     pygame.event.post(pygame.event.Event(pygame.KEYDOWN, {'key': gint.KEY_EXIT}))
     time.sleep(0.5)
 
-    # Just force exit the entire python process since this is a test script
-    import os
-    os._exit(0)
+    # Force exit cleanly
+    time.sleep(1)
+    import _thread
+    _thread.interrupt_main()
 
-# Run automation in background thread
-t = threading.Thread(target=run_automation)
-t.daemon = True
-t.start()
+def main():
+    # Run automation in background thread
+    t = threading.Thread(target=run_automation)
+    t.daemon = True
+    t.start()
 
-import sys
+    import sys
+    try:
+        # Prevent caching issues in subsequent imports if any
+        if 'vi_globals' in sys.modules:
+            del sys.modules['vi_globals']
+        if 'vi_buffer' in sys.modules:
+            del sys.modules['vi_buffer']
+        if 'vi_movement' in sys.modules:
+            del sys.modules['vi_movement']
+        if 'vi_cmd' in sys.modules:
+            del sys.modules['vi_cmd']
+        if 'vi_screen' in sys.modules:
+            del sys.modules['vi_screen']
+        if 'ced' in sys.modules:
+            del sys.modules['ced']
 
-try:
-    import ced
-except SystemExit:
-    pass
-except Exception as e:
-    pass
+        import ced
+    except KeyboardInterrupt: # Thrown by _thread.interrupt_main
+        pass
+    except SystemExit:
+        pass
+    except Exception as e:
+        pass
+
+if __name__ == "__main__":
+    main()

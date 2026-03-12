@@ -23,9 +23,15 @@ def undo_pop():
 
     if undo_entry.u_type in (UNDO_DEL, UNDO_DEL_CHAIN):
         # restore deleted text
-        text_hole_make(undo_entry.start, undo_entry.length)
-        for i in range(undo_entry.length):
-            G.text[undo_entry.start + i] = undo_entry.undo_text[i]
+        # Since text_hole_make fills with spaces, let's just overwrite directly via concatenation
+        # to avoid micropython item assignment indexing issues if length is somehow weird.
+        # Actually it's easier to just concatenate the undo_text directly
+        G.text = G.text[:undo_entry.start] + bytearray(undo_entry.undo_text) + G.text[undo_entry.start:]
+        # adjust markers for restoration
+        if G.dot >= undo_entry.start: G.dot += undo_entry.length
+        if G.screenbegin >= undo_entry.start: G.screenbegin += undo_entry.length
+        for i in range(len(G.mark)):
+            if G.mark[i] >= undo_entry.start: G.mark[i] += undo_entry.length
     elif undo_entry.u_type in (UNDO_INS, UNDO_INS_CHAIN):
         # remove inserted text
         text_hole_delete(undo_entry.start, undo_entry.start + undo_entry.length - 1, NO_UNDO)
@@ -113,14 +119,29 @@ def string_insert(p_idx, s, undo):
     if undo == ALLOW_UNDO: undo_push(p_idx, size, UNDO_INS)
     elif undo == ALLOW_UNDO_CHAIN: undo_push(p_idx, size, UNDO_INS_CHAIN)
 
-    text_hole_make(p_idx, size)
-    for i in range(size):
-        G.text[p_idx + i] = s[i]
+    # MicroPython compatible bytearray insertion (concatenation)
+    G.text = G.text[:p_idx] + bytearray(s) + G.text[p_idx:]
+
+    # adjust markers manually since we bypassed text_hole_make
+    if G.dot >= p_idx: G.dot += size
+    if G.screenbegin >= p_idx: G.screenbegin += size
+    for i in range(len(G.mark)):
+        if G.mark[i] >= p_idx: G.mark[i] += size
+
     return size
 
 def stupid_insert(p_idx, c):
-    text_hole_make(p_idx, 1)
-    G.text[p_idx] = c
+    # MicroPython compatible bytearray insertion
+    if isinstance(c, str):
+        c = ord(c)
+    G.text = G.text[:p_idx] + bytearray([c]) + G.text[p_idx:]
+
+    # adjust markers
+    if G.dot >= p_idx: G.dot += 1
+    if G.screenbegin >= p_idx: G.screenbegin += 1
+    for i in range(len(G.mark)):
+        if G.mark[i] >= p_idx: G.mark[i] += 1
+
     return 1
 
 def init_text_buffer(fn):

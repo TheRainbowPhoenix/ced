@@ -1,5 +1,4 @@
 import sys
-import os
 
 # Create a mock module directly instead of a class
 import types
@@ -73,14 +72,17 @@ class MockKeyboard:
     def draw(self): pass
     def update(self, ev): return None
 cinput.Keyboard = MockKeyboard
+cinput.get_theme = lambda x: {
+        'modal_bg': 1, 'kbd_bg': 1, 'key_bg': 1, 'key_spec': 1,
+        'key_out': 1, 'txt': 1, 'txt_dim': 1, 'accent': 1,
+        'txt_acc': 1, 'hl': 1, 'check': 1
+}
+cinput.pick = lambda *args, **kwargs: None
 sys.modules['cinput'] = cinput
 
 try:
     import ced
-    try:
-        ced.main()
-    except ExitLoop:
-        pass
+except ExitLoop:
     print("Main loop executed successfully")
 except Exception as e:
     import traceback
