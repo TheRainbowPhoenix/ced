@@ -59,7 +59,7 @@ def main():
                         G.cmd_mode = 0
 
                 clearevents()
-                continue
+                break
 
             # Top bar toggle
             if ev.type == KEYEV_TOUCH_DOWN and ev.y < 30:
@@ -89,7 +89,7 @@ def main():
                             G.cmd_mode = 0
 
                     clearevents()
-                    continue
+                    break
 
             res = None
             if kbd.visible and ev.type == KEYEV_TOUCH_DOWN and ev.y >= kbd.y:
@@ -122,5 +122,4 @@ def main():
 
         time.sleep(0.01)
 
-if __name__ == "__main__":
-    main()
+main()

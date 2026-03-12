@@ -93,11 +93,34 @@ def refresh(kb_visible=False, kb_h=0):
 
     dclear(C_WHITE)
 
+    import cinput
+    theme = cinput.get_theme('light')
+
     # Draw Header
-    drect(0, 0, SCREEN_W, header_h, C_LIGHT)
-    dline(0, header_h, SCREEN_W, header_h, C_BLACK)
-    dtext(5, 8, C_BLACK, "KBD")
-    dtext(SCREEN_W // 2 - 40, 8, C_BLUE, G.current_filename if G.current_filename else "untitled")
+    header_col = theme['accent']
+    header_txt = theme['txt_acc']
+
+    drect(0, 0, SCREEN_W, header_h, header_col)
+
+    # Menu Icon (Hamburger)
+    hx, hy = 10, 5
+    for i in range(3):
+        drect(hx, hy + 4 + i*5, hx + 18, hy + 5 + i*5, header_txt)
+
+    # Keyboard Icon
+    kx, ky = SCREEN_W - 35, 5
+    drect_border(kx, ky+2, kx+22, ky+16, C_NONE, 1, header_txt)
+    for r in range(2):
+        for c in range(3):
+            px = kx + 3 + c*6
+            py = ky + 5 + r*5
+            drect(px, py, px+3, py+2, header_txt)
+    if kb_visible:
+        drect(kx, ky+22, kx + 22, ky+23, header_txt)
+
+    # Title
+    title = G.current_filename if G.current_filename else "untitled.py"
+    dtext_opt(SCREEN_W//2, header_h//2, header_txt, C_NONE, DTEXT_CENTER, DTEXT_MIDDLE, title, -1)
 
     # Draw Text
     tp = G.screenbegin

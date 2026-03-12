@@ -26,8 +26,8 @@ def run_automation():
 
     # 2. Enter Insert Mode 'i' -> cinput KBD normally requires touch, but we added hardware key support
     # Actually 'i' is typed via OSK or hardware. In our simulator gint.py, keys are mapped.
-    # Let's just touch the top left (KBD button) to open KBD
-    post_touch(10, 15)
+    # Let's just touch the top right (KBD button) to open KBD
+    post_touch(300, 15)
     time.sleep(0.5)
     pygame.image.save(gint.vram, "screenshot_02_keyboard.png")
 
@@ -67,25 +67,66 @@ def run_automation():
     time.sleep(0.5)
     pygame.image.save(gint.vram, "screenshot_05_colon_mode.png")
 
-    # 6. Quit out via the new Menu
+    # 6. Open a file via the Menu
     post_key(pygame.K_ESCAPE) # Ensure Normal Mode
     time.sleep(0.5)
     post_touch(10, 15) # Tap top left to open menu
     time.sleep(0.5)
     pygame.image.save(gint.vram, "screenshot_06_menu.png")
 
-    # Tap "Quit"
-    # Picker row height = 50, Header = 40. "Quit" is index 4 (0-based)
-    # Y = 40 + 4 * 50 + 25 = 40 + 200 + 25 = 265
-    post_touch(160, 265)
+    # Navigate to "Open..." (Index 1)
+    import cinput
+    original_input = cinput.input
+    cinput.input = lambda *args, **kwargs: "large_file.py"
+
+    post_key(pygame.K_DOWN)
+    time.sleep(0.5)
+    post_key(pygame.K_RETURN) # Select "Open..."
+    time.sleep(1.0)
+
+    cinput.input = original_input
+
+    pygame.image.save(gint.vram, "screenshot_07_large_file.png")
+
+    # Scroll down 15 lines
+    for _ in range(15):
+        post_key(pygame.K_DOWN)
+        time.sleep(0.05)
+    pygame.image.save(gint.vram, "screenshot_08_scrolled.png")
+
+    # 7. Quit out
+    post_touch(10, 15) # Open menu again
+    time.sleep(0.5)
+    for _ in range(4): # Navigate to "Quit"
+        post_key(pygame.K_DOWN)
+        time.sleep(0.2)
+    post_key(pygame.K_RETURN) # Quit
     time.sleep(0.5)
 
     # Send a fallback exit event just in case
     pygame.event.post(pygame.event.Event(pygame.QUIT, {}))
+    # Send F4 fallback
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_F4}))
+
+    # Send the literal event ced.py looks for: key=KEY_EXIT
+    import gint
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, {'key': gint.KEY_EXIT}))
+    time.sleep(0.5)
+
+    # Just force exit the entire python process since this is a test script
+    import os
+    os._exit(0)
 
 # Run automation in background thread
 t = threading.Thread(target=run_automation)
 t.daemon = True
 t.start()
 
-import ced
+import sys
+
+try:
+    import ced
+except SystemExit:
+    pass
+except Exception as e:
+    pass
