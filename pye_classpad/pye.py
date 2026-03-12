@@ -620,57 +620,11 @@ class Editor:
             return None
 
     def undo_add(self, lnum, text, key, span=1, chain=False):
-        if (
-            len(self.undo) == 0
-            or key == KEY_NONE
-            or self.undo[-1][3] != key
-            or self.undo[-1][0] != lnum
-        ):
-            self.changed = "*"
-            if len(self.undo) >= self.undo_limit:  ## drop oldest undo(s), if full
-                del self.undo[0]
-            self.undo.append([lnum, span, text, key, self.col, chain])
-            self.redo = []  ## clear re-do list.
+        self.changed = "*"
+        return
 
     def undo_redo(self, undo, redo):
-        chain = True
-        redo_start = len(redo)
-        while len(undo) > 0 and chain:
-            action = undo.pop()  ## get action from stack
-            if action[3] not in (KEY_INDENT, KEY_DEDENT, KEY_COMMENT):
-                self.cur_line = action[0]  ## wrong for Bkspc of BOL
-            self.col = action[4]
-            if len(redo) >= self.undo_limit:  ## mybe not enough
-                del redo[0]
-            if action[1] >= 0:  ## insert or replace line
-                redo.append(
-                    action[0:1]
-                    + [len(action[2])]
-                    + [self.content[action[0] : action[0] + action[1]]]  ## safe to redo stack
-                    + action[3:]
-                )
-                if action[0] < self.total_lines:
-                    self.content[action[0] : action[0] + action[1]] = action[2]  # insert lines
-                else:
-                    self.content += action[2]
-            else:  ## delete lines, restore the current line
-                redo.append(
-                    action[0:1]
-                    + [1]
-                    + [  ## undo deletes, redo inserts
-                        self.content[action[0] : action[0] - action[1] + 1]
-                    ]
-                    + action[3:]
-                )
-                del self.content[action[0] : action[0] - action[1]]
-                self.content[action[0]] = action[2][0]  # replace current line with save content
-            chain = action[5]
-        if (len(redo) - redo_start) > 0:  ## Performed at least one action
-            redo[-1][5] = True  ## fix the chaining flags for reversed action order.
-            redo[redo_start][5] = False
-            self.total_lines = len(self.content)  ## Reset the length and change indicator
-            self.changed = "" if self.hash == self.hash_buffer() else "*"
-            self.clear_mark()
+        return
 
     def set_mark(self, flag=999999999):  ## start the highlighting if not done yet
         if self.mark is None:
@@ -888,22 +842,30 @@ class Editor:
 
             t = self.keyboard.theme
             running_settings = True
+
+            items = [
+                {'name': 'Autoindent', 'val': Editor.autoindent, 'type': 'item', 'key': 'auto'},
+                {'name': 'Search Case', 'val': Editor.case, 'type': 'item', 'key': 'case'},
+                {'name': 'Tab Size', 'val': self.tab_size, 'type': 'item', 'key': 'tab'},
+                {'name': 'Comment Char', 'val': Editor.comment_char, 'type': 'item', 'key': 'com'},
+                {'name': 'Tab Write', 'val': self.write_tabs, 'type': 'item', 'key': 'tw'},
+                {'name': 'Theme', 'val': getattr(self.keyboard, 'theme_name', 'light'), 'type': 'item', 'key': 'theme'}
+            ]
+            rect = (0, 40, 320, 528 - 40)
+            lv = SettingsListView(rect, items, theme_name=t)
+            lv.theme = t
+
+            cinput.clearevents()
+            cinput.cleareventflips()
+
             while running_settings:
-                items = [
-                    {'name': 'Autoindent', 'val': Editor.autoindent, 'type': 'item', 'key': 'auto'},
-                    {'name': 'Search Case', 'val': Editor.case, 'type': 'item', 'key': 'case'},
-                    {'name': 'Tab Size', 'val': self.tab_size, 'type': 'item', 'key': 'tab'},
-                    {'name': 'Comment Char', 'val': Editor.comment_char, 'type': 'item', 'key': 'com'},
-                    {'name': 'Tab Write', 'val': self.write_tabs, 'type': 'item', 'key': 'tw'},
-                    {'name': 'Theme', 'val': self.keyboard.theme_name if hasattr(self.keyboard, 'theme_name') else 'light', 'type': 'item', 'key': 'theme'}
-                ]
-
-                # Full screen minus header
-                rect = (0, 40, 320, 528 - 40)
-                lv = SettingsListView(rect, items, theme_name=t) # t is dict here, cinput handles it mostly but let's pass dict if get_theme supports it, or 'light'
-
-                # To be safe, force it to string if we can, or just use 'light'
-                lv.theme = t
+                # Update displayed values dynamically
+                lv.items[0]['val'] = Editor.autoindent
+                lv.items[1]['val'] = Editor.case
+                lv.items[2]['val'] = self.tab_size
+                lv.items[3]['val'] = Editor.comment_char
+                lv.items[4]['val'] = self.write_tabs
+                lv.items[5]['val'] = getattr(self.keyboard, 'theme_name', 'light')
 
                 dclear(t['modal_bg'])
                 drect(0, 0, 320, 40, t['accent'])

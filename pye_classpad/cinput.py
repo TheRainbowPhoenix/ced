@@ -711,7 +711,7 @@ class ListPicker:
     def __init__(self, options, prompt="Select:", theme="light", multi=False, touch_mode=KEYEV_TOUCH_DOWN):
         self.options = options
         self.prompt = prompt
-        self.theme_name = theme if isinstance(theme, str) else 'light'
+        self.theme_name = theme if isinstance(theme, str) else "light"
         self.theme: dict = get_theme(theme)
         self.multi = multi
         self.touch_mode = touch_mode
