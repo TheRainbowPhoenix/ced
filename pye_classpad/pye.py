@@ -36,7 +36,41 @@ else:
     def const(x):
         return x
 
-from re import compile as re_compile
+class DummyMatch:
+    def __init__(self, string):
+        self.string = string
+    def group(self, idx):
+        return self.string
+
+class DummyRegex:
+    def __init__(self, pattern):
+        self.pattern = pattern
+        self.is_start = pattern.startswith('^')
+        self.is_end = pattern.endswith('$')
+        self.search_str = pattern
+        if self.is_start:
+            self.search_str = self.search_str[1:]
+        if self.is_end:
+            self.search_str = self.search_str[:-1]
+
+    def search(self, text):
+        if self.is_start and self.is_end:
+            if text == self.search_str:
+                return DummyMatch(self.search_str)
+        elif self.is_start:
+            if text.startswith(self.search_str):
+                return DummyMatch(self.search_str)
+        elif self.is_end:
+            if text.endswith(self.search_str):
+                return DummyMatch(self.search_str)
+        else:
+            if self.search_str in text:
+                return DummyMatch(self.search_str)
+        return None
+
+def re_compile(pattern):
+    return DummyRegex(pattern)
+
 import time
 from gint import *
 import cinput
@@ -271,6 +305,18 @@ class Editor:
                 self.message += "{} Bytes Memory available".format(gc.mem_free())
         self.changed = "" if self.hash == self.hash_buffer() else "*"
 
+    def draw_icon_menu(self, x, y, col):
+        for i in range(3):
+            drect(x, y + 4 + i*5, x + 18, y + 5 + i*5, col)
+
+    def draw_icon_kbd(self, x, y, col):
+        drect_border(x, y+2, x+22, y+16, C_NONE, 1, col)
+        for r in range(2):
+            for c in range(3):
+                px = x + 3 + c*6
+                py = y + 5 + r*5
+                drect(px, py, px+3, py+2, col)
+
     def get_input(self):
         touch_latched = False
         while True:
@@ -300,13 +346,25 @@ class Editor:
 
                 if e.type == KEYEV_TOUCH_DOWN and not touch_latched:
                     # Top menu simulation
-                    if e.y < 30:
+                    if e.y < 40:
                         if e.x > 320 - 60:
                             self.keyboard.visible = not self.keyboard.visible
                         elif e.x < 60:
-                            return KEY_GET, None
-                        elif e.x < 120:
-                            return KEY_WRITE, None
+                            # Hamburger menu
+                            opts = [
+                                "Save", "Open...", "Find", "Replace", "Go To Line",
+                                "Undo", "Redo", "Toggle Settings", "Quit"
+                            ]
+                            choice = cinput.pick(opts, "Menu", theme='light')
+                            if choice == "Save": return KEY_WRITE, None
+                            elif choice == "Open...": return KEY_GET, None
+                            elif choice == "Find": return KEY_FIND, None
+                            elif choice == "Replace": return KEY_REPLC, None
+                            elif choice == "Go To Line": return KEY_GOTO, None
+                            elif choice == "Undo": return KEY_UNDO, None
+                            elif choice == "Redo": return KEY_REDO, None
+                            elif choice == "Toggle Settings": return KEY_TOGGLE, None
+                            elif choice == "Quit": return KEY_QUIT, None
                     elif self.keyboard.visible and e.y >= self.keyboard.y:
                         touch_latched = True
                         res = self.keyboard.update(e)
@@ -318,8 +376,8 @@ class Editor:
                     else:
                         # Map touch to cursor
                         kb_h = 260 if self.keyboard.visible else 0
-                        if e.y > 30 and e.y < 528 - kb_h:
-                            row = (e.y - 30) // 20
+                        if e.y > 40 and e.y < 528 - kb_h:
+                            row = (e.y - 40) // 20
 
                             # Estimate col by measuring string widths
                             line_idx = row + self.top_line
@@ -345,18 +403,32 @@ class Editor:
             self.display_window()
 
     def display_window(self):
-        dclear(C_WHITE)
-        HEADER_H = 30
+        t = self.keyboard.theme
+        dclear(t['modal_bg'])
+        HEADER_H = 40
         TEXT_LINE_H = 20
         TEXT_MARGIN_X = 5
 
-        # Menu Bar
-        drect(0, 0, 320, HEADER_H, C_LIGHT)
-        dline(0, HEADER_H, 320, HEADER_H, C_BLACK)
-        dtext(10, 8, C_BLACK, "Load")
-        dtext(70, 8, C_BLACK, "Save")
-        dtext(320 - 50, 8, C_BLACK, "KBD")
-        dtext(320 // 2 - 40, 8, C_BLUE, self.fname)
+        # Material Header
+        header_col = t['accent']
+        header_txt = t['txt_acc']
+
+        drect(0, 0, 320, HEADER_H, header_col)
+
+        # Left Icon: Menu (x=10)
+        self.draw_icon_menu(10, 10, header_txt)
+
+        # Right Icon: Keyboard Toggle (x=SCREEN_W-35)
+        kbd_x = 320 - 35
+        if not self.keyboard.visible:
+            self.draw_icon_kbd(kbd_x, 10, header_txt)
+        else:
+            self.draw_icon_kbd(kbd_x, 10, header_txt)
+            drect(kbd_x, 22, kbd_x + 22, 23, header_txt)
+
+        # Title (Centered)
+        title = self.fname + self.changed
+        dtext_opt(320//2, HEADER_H//2, header_txt, C_NONE, DTEXT_CENTER, DTEXT_MIDDLE, title, -1)
 
         # Force cur_line and col to be in the reasonable bounds
         self.cur_line = min(self.total_lines - 1, max(self.cur_line, 0))
@@ -399,13 +471,13 @@ class Editor:
                     drect(x1, y, x2, y + 18, 0xCE59) # Theme highlight color
 
             # Draw Text
-            dtext(TEXT_MARGIN_X, y, C_BLACK, line_str)
+            dtext(TEXT_MARGIN_X, y, t['txt'], line_str)
 
             # Draw Cursor
             if idx == self.cur_line:
                 cursor_offset, _ = dsize(line_str[:self.vcol], None)
                 cx_px = TEXT_MARGIN_X + cursor_offset
-                drect(cx_px, y, cx_px + 2, y + 18, C_BLACK)
+                drect(cx_px, y, cx_px + 2, y + 18, t['txt'])
 
         dwindow_set(0, 0, 320, 528)
 
@@ -1324,3 +1396,7 @@ class IO_DEVICE:
         pass
     def get_screen_size(self):
         return [528 // 20, 320 // 8] # dummy character dimensions for Editor
+
+if __name__ == "__main__":
+    oid = IO_DEVICE()
+    pye_edit(["untitled.py"], io_device=oid)
